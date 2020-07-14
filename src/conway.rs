@@ -1,10 +1,15 @@
 use std::collections::HashSet;
 
-#[derive(Clone, Debug, PartialEq)]
-enum Cell {
-    Alive,
-    Dead,
-}
+static RELATIVE_CORDS: &'static [(i32, i32)] = &[
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, -1),
+    (0, 1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
+];
 
 struct Conway {
     grid: HashSet<(i32, i32)>,
@@ -18,48 +23,43 @@ impl Conway {
     }
 
     pub fn cycle(mut self) -> Conway {
-        self.grid = self
-            .grid
-            .iter()
-            .filter(|&&pos| (2..3).contains(&self.neighbors(pos).len()))
-            .cloned()
-            .collect();
+        println!("{:?}", self.reachable_points());
+        self.grid = self.reachable_points().iter().filter(|&&point| {
+            if self.alive(point) {
+                return (2..3).contains(&self.neighbors(point).iter().filter(|&&point| self.alive(point)).count())
+            } else {
+                return self.neighbors(point).iter().filter(|&&point| self.alive(point)).count() == 3
+            }
+        }).cloned().collect();
+        println!("{:?}", self.grid);
         self
     }
 
-    pub fn neighbors(&self, (row, col): (i32, i32)) -> Vec<(i32, i32)> {
-        let relative_coords = [
-            (-1, -1),
-            (-1, 0),
-            (-1, 1),
-            (0, -1),
-            (0, 1),
-            (1, -1),
-            (1, 0),
-            (1, 1),
-        ];
-        relative_coords
+    fn reachable_points(&self) -> HashSet<(i32, i32)> {
+        self.grid.iter().flat_map(|&point| {
+            let mut neighbors = self.neighbors(point);
+            neighbors.insert(point);
+            neighbors
+        }).collect()
+    }
+
+    pub fn neighbors(&self, (row, col): (i32, i32)) -> HashSet<(i32, i32)> {
+        RELATIVE_CORDS
             .iter()
             .map(|(x, y)| (row + x, col + y))
-            .filter(|pos| self.grid.contains(pos))
             .collect()
     }
 
-    #[cfg(test)]
-    fn spawn(&mut self, pos: (i32, i32)) {
-        self.grid.insert(pos);
-    }
-
-    #[cfg(test)]
     fn alive(&self, pos: (i32, i32)) -> bool {
         return self.grid.contains(&pos)
     }
 
     #[cfg(test)]
-    fn status(&self, pos: (i32, i32)) -> Cell {
-        match self.grid.get(&pos) {
-            Some(_) => Cell::Alive,
-            None => Cell::Dead,
+    fn set_alive(&mut self, pos: (i32, i32), alive: bool) {
+        if alive {
+            self.grid.insert(pos);
+        } else {
+            self.grid.remove(&pos);
         }
     }
 }
@@ -71,45 +71,46 @@ mod tests {
     #[test]
     fn test_cycle_kills_adjacent_unpopulated() {
         let mut conway = Conway::new();
-        conway.spawn((0, 0));
-        conway.spawn((0, 1));
-        conway.spawn((0, 2));
+        conway.set_alive((0, 0), true);
+        conway.set_alive((0, 1), true);
+        conway.set_alive((0, 2), true);
         conway = conway.cycle();
-        assert_eq!(conway.status((0, 0)), Cell::Dead);
-        assert_eq!(conway.status((0, 1)), Cell::Alive);
-        assert_eq!(conway.status((0, 2)), Cell::Dead);
+        assert!(!conway.alive((0, 0)));
+        assert!(conway.alive((0, 1)));
+        assert!(!conway.alive((0, 2)));
     }
 
     #[test]
     fn test_cycle_kills_diagonal_unpopulated() {
         let mut conway = Conway::new();
-        conway.spawn((0, 0));
-        conway.spawn((1, 1));
-        conway.spawn((2, 2));
+        conway.set_alive((0, 0), true);
+        conway.set_alive((1, 1), true);
+        conway.set_alive((2, 2), true);
         conway = conway.cycle();
-        assert_eq!(conway.status((0, 0)), Cell::Dead);
-        assert_eq!(conway.status((1, 1)), Cell::Alive);
-        assert_eq!(conway.status((2, 2)), Cell::Dead);
-    }
-
-    #[test]
-    fn test_neighbors() {
-        let mut conway = Conway::new();
-        conway.spawn((0, 0));
-        conway.spawn((0, 1));
-        conway.spawn((1, 0));
-        assert_eq!(conway.neighbors((0, 0)), vec![(0, 1), (1, 0)])
+        assert!(!conway.alive((0, 0)));
+        assert!(conway.alive((1, 1)));
+        assert!(!conway.alive((2, 2)));
     }
 
     #[test]
     fn test_cycle_kills_overpopulated() {
         let mut conway = Conway::new();
-        conway.spawn((1, 1));
-        conway.spawn((0, 0));
-        conway.spawn((2, 0));
-        conway.spawn((0, 2));
-        conway.spawn((2, 2));
+        conway.set_alive((1, 1), true);
+        conway.set_alive((0, 0), true);
+        conway.set_alive((2, 0), true);
+        conway.set_alive((0, 2), true);
+        conway.set_alive((2, 2), true);
         conway = conway.cycle();
         assert!(!conway.alive((1, 1)))
+    }
+
+    #[test]
+    fn test_cycle_reproduces() {
+        let mut conway = Conway::new();
+        conway.set_alive((0, 0), true);
+        conway.set_alive((1, 0), true);
+        conway.set_alive((0, 1), true);
+        conway = conway.cycle();
+        assert!(conway.alive((1, 1)));
     }
 }
