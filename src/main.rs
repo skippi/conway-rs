@@ -1,41 +1,59 @@
-use std::ops::{Index, IndexMut};
+use std::collections::HashSet;
 
-#[derive(Clone)]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum Cell {
     Alive,
     Dead,
 }
 
 struct Conway {
-    grid: Vec<Vec<Cell>>,
+    grid: HashSet<(i32, i32)>,
 }
 
 impl Conway {
-    fn with_size(rows: usize, cols: usize) -> Conway {
+    fn new() -> Conway {
         Conway {
-            grid: vec![vec![Cell::Dead; cols]; rows]
+            grid: HashSet::new(),
         }
     }
 
     fn decay(mut self) -> Conway {
-        self[(0, 0)] = Cell::Alive;
-        self[(0, 1)] = Cell::Dead;
-        self[(1, 0)] = Cell::Dead;
+        self.grid = self
+            .grid
+            .iter()
+            .filter(|&&pos| self.neighbors(pos).len() >= 2)
+            .cloned()
+            .collect();
         self
     }
-}
 
-impl Index<(usize, usize)> for Conway {
-    type Output = Cell;
-    fn index(&self, (row, col): (usize, usize)) -> &Self::Output {
-        self.grid.index(row).index(col)
+    fn neighbors(&self, (row, col): (i32, i32)) -> Vec<(i32, i32)> {
+        let relative_coords = [
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+            (0, -1),
+            (0, 1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
+        ];
+        relative_coords
+            .iter()
+            .map(|(x, y)| (row + x, col + y))
+            .filter(|pos| self.grid.contains(pos))
+            .collect()
     }
-}
 
-impl IndexMut<(usize, usize)> for Conway {
-    fn index_mut(&mut self, (row, col): (usize, usize)) -> &mut Self::Output {
-        self.grid.index_mut(row).index_mut(col)
+    fn spawn(&mut self, pos: (i32, i32)) {
+        self.grid.insert(pos);
+    }
+
+    fn status(&self, pos: (i32, i32)) -> Cell {
+        match self.grid.get(&pos) {
+            Some(_) => Cell::Alive,
+            None => Cell::Dead,
+        }
     }
 }
 
@@ -48,14 +66,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_decay() {
-        let mut conway = Conway::with_size(3, 3);
-        conway[(0, 0)] = Cell::Alive;
-        conway[(0, 1)] = Cell::Alive;
-        conway[(1, 0)] = Cell::Alive;
+    fn test_decay_kills_adjacent_unpopulated() {
+        let mut conway = Conway::new();
+        conway.spawn((0, 0));
+        conway.spawn((0, 1));
+        conway.spawn((0, 2));
         conway = conway.decay();
-        assert_eq!(conway[(0, 0)], Cell::Alive);
-        assert_eq!(conway[(0, 1)], Cell::Dead);
-        assert_eq!(conway[(1, 0)], Cell::Dead);
+        assert_eq!(conway.status((0, 0)), Cell::Dead);
+        assert_eq!(conway.status((0, 1)), Cell::Alive);
+        assert_eq!(conway.status((0, 2)), Cell::Dead);
+    }
+
+    #[test]
+    fn test_decay_kills_diagonal_unpopulated() {
+        let mut conway = Conway::new();
+        conway.spawn((0, 0));
+        conway.spawn((1, 1));
+        conway.spawn((2, 2));
+        conway = conway.decay();
+        assert_eq!(conway.status((0, 0)), Cell::Dead);
+        assert_eq!(conway.status((1, 1)), Cell::Alive);
+        assert_eq!(conway.status((2, 2)), Cell::Dead);
+    }
+
+    #[test]
+    fn test_neighbors() {
+        let mut conway = Conway::new();
+        conway.spawn((0, 0));
+        conway.spawn((0, 1));
+        conway.spawn((1, 0));
+        assert_eq!(conway.neighbors((0, 0)), vec![(0, 1), (1, 0)])
     }
 }
