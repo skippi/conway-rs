@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::iter;
 
 static RELATIVE_CORDS: &'static [(i32, i32)] = &[
     (-1, -1),
@@ -15,17 +16,14 @@ static RELATIVE_CORDS: &'static [(i32, i32)] = &[
 struct Point(i32, i32);
 
 impl Point {
-    fn neighborhood(&self) -> Vec<Point> {
-        let mut neighbors = self.neighbors();
-        neighbors.push(self.clone());
-        neighbors
+    fn neighborhood(&self) -> impl Iterator<Item = Self> + '_ {
+        self.neighbors().chain(iter::once(*self))
     }
 
-    fn neighbors(&self) -> Vec<Point> {
+    fn neighbors(&self) -> impl Iterator<Item = Self> + '_ {
         RELATIVE_CORDS
             .iter()
-            .map(|(x, y)| Point(self.0 + x, self.1 + y))
-            .collect()
+            .map(move |(x, y)| Point(self.0 + x, self.1 + y))
     }
 }
 
@@ -51,7 +49,7 @@ impl Conway {
     }
 
     fn will_live(&self, point: Point) -> bool {
-        let alive_neighbor_count = self.alive_neighbors_count(point);
+        let alive_neighbor_count = point.neighbors().filter(|&p| self.is_alive(p)).count();
         if self.is_alive(point) {
             (2..3).contains(&alive_neighbor_count)
         } else {
@@ -61,14 +59,6 @@ impl Conway {
 
     fn is_alive(&self, point: Point) -> bool {
         self.grid.contains(&point)
-    }
-
-    fn alive_neighbors_count(&self, point: Point) -> usize {
-        point
-            .neighbors()
-            .iter()
-            .filter(|&&p| self.is_alive(p))
-            .count()
     }
 
     #[cfg(test)]
