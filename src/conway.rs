@@ -13,7 +13,7 @@ static RELATIVE_CORDS: &'static [(i32, i32)] = &[
 ];
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-struct Point(i32, i32);
+pub struct Point(pub i32, pub i32);
 
 impl Point {
     fn neighborhood(&self) -> impl Iterator<Item = Self> + '_ {
@@ -27,7 +27,7 @@ impl Point {
     }
 }
 
-struct Conway {
+pub struct Conway {
     grid: HashSet<Point>,
 }
 
@@ -57,12 +57,11 @@ impl Conway {
         }
     }
 
-    fn is_alive(&self, point: Point) -> bool {
+    pub fn is_alive(&self, point: Point) -> bool {
         self.grid.contains(&point)
     }
 
-    #[cfg(test)]
-    fn set_alive(&mut self, point: Point, alive: bool) {
+    pub fn set_alive(&mut self, point: Point, alive: bool) {
         if alive {
             self.grid.insert(point);
         } else {
