@@ -12,61 +12,73 @@ static RELATIVE_CORDS: &'static [(i32, i32)] = &[
     (1, 1),
 ];
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Point(pub i32, pub i32);
+#[derive(Debug, Eq, PartialEq)]
+pub enum Cell {
+    Alive,
+    Dead,
+}
 
-impl Point {
-    fn neighborhood(&self) -> impl Iterator<Item = Self> + '_ {
-        self.neighbors().chain(iter::once(*self))
-    }
-
-    fn neighbors(&self) -> impl Iterator<Item = Self> + '_ {
-        RELATIVE_CORDS
-            .iter()
-            .map(move |(x, y)| Point(self.0 + x, self.1 + y))
+impl Cell {
+    fn evolve(&self, alive_neighbor_count: usize) -> Cell {
+        match (self, alive_neighbor_count) {
+            (Cell::Alive, 2) => Cell::Alive,
+            (Cell::Alive, 3) => Cell::Alive,
+            (Cell::Dead, 3) => Cell::Alive,
+            _ => Cell::Dead,
+        }
     }
 }
 
 pub struct Conway {
-    grid: HashSet<Point>,
+    grid: HashSet<(i32, i32)>,
 }
 
 impl Conway {
-    pub fn new() -> Conway {
+    fn new() -> Conway {
         Conway {
             grid: HashSet::new(),
         }
     }
 
-    pub fn cycle(mut self) -> Conway {
-        self.grid = self
+    pub fn with_cells(points: &[(i32, i32)]) -> Self {
+        let mut conway = Conway::new();
+        conway.grid.extend(points);
+        conway
+    }
+
+    fn count_alive_neighbors(&self, point: (i32, i32)) -> usize {
+        self.get_neighbors(point)
+            .filter(|p| self.grid.contains(p))
+            .count()
+    }
+
+    pub fn get(&self, point: (i32, i32)) -> Cell {
+        if self.grid.contains(&point) {
+            Cell::Alive
+        } else {
+            Cell::Dead
+        }
+    }
+
+    pub fn next(&self) -> Self {
+        let grid = self
             .grid
             .iter()
-            .flat_map(|point| point.neighborhood())
-            .filter(|&point| self.will_live(point))
+            .flat_map(|&p| self.get_neighborhood(p))
+            .filter(|&p| {
+                let alive_count = self.count_alive_neighbors(p);
+                self.get(p).evolve(alive_count) == Cell::Alive
+            })
             .collect();
-        self
+        Conway { grid }
     }
 
-    fn will_live(&self, point: Point) -> bool {
-        let alive_neighbor_count = point.neighbors().filter(|&p| self.is_alive(p)).count();
-        if self.is_alive(point) {
-            (2..3).contains(&alive_neighbor_count)
-        } else {
-            alive_neighbor_count == 3
-        }
+    fn get_neighbors(&self, (row, col): (i32, i32)) -> impl Iterator<Item = (i32, i32)> + '_ {
+        RELATIVE_CORDS.iter().map(move |(x, y)| (row + x, col + y))
     }
 
-    pub fn is_alive(&self, point: Point) -> bool {
-        self.grid.contains(&point)
-    }
-
-    pub fn set_alive(&mut self, point: Point, alive: bool) {
-        if alive {
-            self.grid.insert(point);
-        } else {
-            self.grid.remove(&point);
-        }
+    fn get_neighborhood(&self, point: (i32, i32)) -> impl Iterator<Item = (i32, i32)> + '_ {
+        self.get_neighbors(point).chain(iter::once(point))
     }
 }
 
@@ -75,48 +87,78 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_cycle_kills_adjacent_unpopulated() {
-        let mut conway = Conway::new();
-        conway.set_alive(Point(0, 0), true);
-        conway.set_alive(Point(0, 1), true);
-        conway.set_alive(Point(0, 2), true);
-        conway = conway.cycle();
-        assert!(!conway.is_alive(Point(0, 0)));
-        assert!(conway.is_alive(Point(0, 1)));
-        assert!(!conway.is_alive(Point(0, 2)));
+    fn test_evolve_saves_cell_with_two_alive_neighbors() {
+        assert_eq!(Cell::Alive.evolve(2), Cell::Alive);
     }
 
     #[test]
-    fn test_cycle_kills_diagonal_unpopulated() {
-        let mut conway = Conway::new();
-        conway.set_alive(Point(0, 0), true);
-        conway.set_alive(Point(1, 1), true);
-        conway.set_alive(Point(2, 2), true);
-        conway = conway.cycle();
-        assert!(!conway.is_alive(Point(0, 0)));
-        assert!(conway.is_alive(Point(1, 1)));
-        assert!(!conway.is_alive(Point(2, 2)));
+    fn test_evolve_saves_cell_with_three_alive_neighbors() {
+        assert_eq!(Cell::Alive.evolve(3), Cell::Alive);
+        assert_eq!(Cell::Dead.evolve(3), Cell::Alive);
+        assert_eq!(Cell::Alive.evolve(4), Cell::Dead);
+        assert_eq!(Cell::Alive.evolve(5), Cell::Dead);
     }
 
     #[test]
-    fn test_cycle_kills_overpopulated() {
-        let mut conway = Conway::new();
-        conway.set_alive(Point(1, 1), true);
-        conway.set_alive(Point(0, 0), true);
-        conway.set_alive(Point(2, 0), true);
-        conway.set_alive(Point(0, 2), true);
-        conway.set_alive(Point(2, 2), true);
-        conway = conway.cycle();
-        assert!(!conway.is_alive(Point(1, 1)))
+    fn test_evolve_revives_cell_with_three_alive_neighbors() {
+        assert_eq!(Cell::Dead.evolve(3), Cell::Alive);
+        assert_eq!(Cell::Alive.evolve(4), Cell::Dead);
+        assert_eq!(Cell::Alive.evolve(5), Cell::Dead);
     }
 
     #[test]
-    fn test_cycle_reproduces() {
+    fn test_evolve_kills_cell_with_less_than_two_neighbors() {
+        assert_eq!(Cell::Alive.evolve(0), Cell::Dead);
+        assert_eq!(Cell::Alive.evolve(1), Cell::Dead);
+    }
+
+    #[test]
+    fn test_evolve_kills_cell_with_more_than_three_neighbors() {
+        assert_eq!(Cell::Alive.evolve(4), Cell::Dead);
+        assert_eq!(Cell::Alive.evolve(5), Cell::Dead);
+    }
+
+    #[test]
+    fn test_count_alive_neighbors_counts_one_neighbor() {
         let mut conway = Conway::new();
-        conway.set_alive(Point(0, 0), true);
-        conway.set_alive(Point(1, 0), true);
-        conway.set_alive(Point(0, 1), true);
-        conway = conway.cycle();
-        assert!(conway.is_alive(Point(1, 1)));
+        conway.grid.extend([(0, 0), (0, 1)].iter());
+        assert_eq!(conway.count_alive_neighbors((0, 0)), 1);
+    }
+
+    #[test]
+    fn test_count_alive_neighbors_counts_two_neighbors() {
+        let mut conway = Conway::new();
+        conway.grid.extend([(0, 5), (0, 6), (0, 7)].iter());
+        assert_eq!(conway.count_alive_neighbors((0, 6)), 2);
+    }
+
+    #[test]
+    fn test_get() {
+        let conway = Conway::with_cells(&[(0, 0)]);
+        assert_eq!(conway.get((0, 0)), Cell::Alive);
+        assert_eq!(conway.get((0, 1)), Cell::Dead);
+    }
+
+    #[test]
+    fn test_next_evolves_alive_cells() {
+        let points = [(0, 0), (0, 1), (0, 2)];
+        let conway = Conway::with_cells(&points);
+        let result = conway.next();
+        for &point in points.iter() {
+            let alive_count = conway.count_alive_neighbors(point);
+            assert_eq!(result.get(point), conway.get(point).evolve(alive_count))
+        }
+    }
+
+    #[test]
+    fn test_next_evolves_dead_but_involved_cells() {
+        let points = [(0, 0), (1, 0), (0, 1)];
+        let conway = Conway::with_cells(&points);
+        let result = conway.next();
+        let alive_neighbor_count = conway.count_alive_neighbors((1, 1));
+        assert_eq!(
+            result.get((1, 1)),
+            conway.get((1, 1)).evolve(alive_neighbor_count)
+        )
     }
 }
