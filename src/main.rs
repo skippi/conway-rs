@@ -14,10 +14,11 @@ fn main() -> crossterm::Result<()> {
     let mut stdout = io::stdout();
     execute!(stdout, cursor::Hide, terminal::EnterAlternateScreen)?;
     let mut rng = rand::thread_rng();
-    let mut conway = Conway::with_iter(points(60, 30).filter(|_| rng.gen()));
+    let (rows, cols) = terminal::size()?;
+    let mut conway = Conway::with_iter(points(rows as i32, cols as i32).filter(|_| rng.gen()));
     loop {
         conway = conway.next();
-        draw_conway(&mut stdout, &conway, 60, 30)?;
+        draw_conway(&mut stdout, &conway, rows as i32, cols as i32)?;
         stdout.flush()?;
         if event::poll(Duration::from_millis(250))? {
             match event::read()? {
