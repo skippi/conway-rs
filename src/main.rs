@@ -12,8 +12,7 @@ use std::time::Duration;
 
 fn main() -> crossterm::Result<()> {
     let mut stdout = io::stdout();
-    execute!(stdout, terminal::EnterAlternateScreen)?;
-    terminal::enable_raw_mode()?;
+    execute!(stdout, cursor::Hide, terminal::EnterAlternateScreen)?;
     let mut rng = rand::thread_rng();
     let mut conway = Conway::with_iter(points(60, 30).filter(|_| rng.gen()));
     loop {
@@ -28,7 +27,6 @@ fn main() -> crossterm::Result<()> {
         }
     }
     execute!(stdout, cursor::Show, terminal::LeaveAlternateScreen)?;
-    terminal::disable_raw_mode()?;
     Ok(())
 }
 
