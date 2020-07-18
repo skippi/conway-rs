@@ -18,4 +18,5 @@ Use cargo and your choice of compiler options.
 
 ```bash
 cargo +nightly build
+cargo test
 ```
