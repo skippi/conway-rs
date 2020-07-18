@@ -15,28 +15,10 @@ fn main() -> crossterm::Result<()> {
     execute!(stdout, terminal::EnterAlternateScreen)?;
     terminal::enable_raw_mode()?;
     let mut rng = rand::thread_rng();
-    let points: Vec<(i32, i32)> = (0..81)
-        .flat_map(|row| (0..41).map(move |col| (row, col)))
-        .filter(|_| rng.gen())
-        .collect();
-    let mut conway = Conway::with_cells(&points);
+    let mut conway = Conway::with_iter(points(60, 30).filter(|_| rng.gen()));
     loop {
         conway = conway.next();
-        queue!(stdout, crossterm::style::ResetColor, cursor::Hide)?;
-        for i in 0..81 {
-            for j in 0..41 {
-                let symbol = match conway.get((i, j)) {
-                    Cell::Alive => Color::White,
-                    _ => Color::Black,
-                };
-                queue!(
-                    io::stdout(),
-                    cursor::MoveTo(i as u16, j as u16),
-                    crossterm::style::SetBackgroundColor(symbol),
-                    Print(" ")
-                )?;
-            }
-        }
+        draw_conway(&mut stdout, &conway, 60, 30)?;
         stdout.flush()?;
         if event::poll(Duration::from_millis(250))? {
             match event::read()? {
@@ -48,4 +30,36 @@ fn main() -> crossterm::Result<()> {
     execute!(stdout, cursor::Show, terminal::LeaveAlternateScreen)?;
     terminal::disable_raw_mode()?;
     Ok(())
+}
+
+fn points(width: i32, height: i32) -> impl Iterator<Item = (i32, i32)> {
+    (0..width).flat_map(move |row| (0..height).map(move |col| (row, col)))
+}
+
+fn draw_conway<W: Write>(
+    writer: &mut W,
+    conway: &Conway,
+    width: i32,
+    height: i32,
+) -> crossterm::Result<()> {
+    queue!(writer, crossterm::style::ResetColor, cursor::Hide)?;
+    for point in points(width, height) {
+        let (row, col) = point;
+        let cell = conway.get(point);
+        let background_color = pick_cell_color(&cell);
+        queue!(
+            writer,
+            cursor::MoveTo(row as u16, col as u16),
+            crossterm::style::SetBackgroundColor(background_color),
+            Print(" ")
+        )?
+    }
+    Ok(())
+}
+
+fn pick_cell_color(cell: &Cell) -> Color {
+    match cell {
+        Cell::Alive => Color::White,
+        _ => Color::Black,
+    }
 }

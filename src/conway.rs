@@ -40,9 +40,17 @@ impl Conway {
         }
     }
 
-    pub fn with_cells(points: &[(i32, i32)]) -> Self {
+    #[cfg(test)]
+    fn with_cells(points: &[(i32, i32)]) -> Self {
+        Self::with_iter(points.iter().cloned())
+    }
+
+    pub fn with_iter<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = (i32, i32)>,
+    {
         let mut conway = Conway::new();
-        conway.grid.extend(points);
+        conway.grid.extend(iter);
         conway
     }
 
@@ -87,12 +95,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_evolve_saves_cell_with_two_alive_neighbors() {
+    fn evolve_saves_cell_with_two_alive_neighbors() {
         assert_eq!(Cell::Alive.evolve(2), Cell::Alive);
     }
 
     #[test]
-    fn test_evolve_saves_cell_with_three_alive_neighbors() {
+    fn evolve_saves_cell_with_three_alive_neighbors() {
         assert_eq!(Cell::Alive.evolve(3), Cell::Alive);
         assert_eq!(Cell::Dead.evolve(3), Cell::Alive);
         assert_eq!(Cell::Alive.evolve(4), Cell::Dead);
@@ -100,45 +108,45 @@ mod tests {
     }
 
     #[test]
-    fn test_evolve_revives_cell_with_three_alive_neighbors() {
+    fn evolve_revives_cell_with_three_alive_neighbors() {
         assert_eq!(Cell::Dead.evolve(3), Cell::Alive);
         assert_eq!(Cell::Alive.evolve(4), Cell::Dead);
         assert_eq!(Cell::Alive.evolve(5), Cell::Dead);
     }
 
     #[test]
-    fn test_evolve_kills_cell_with_less_than_two_neighbors() {
+    fn evolve_kills_cell_with_less_than_two_neighbors() {
         assert_eq!(Cell::Alive.evolve(0), Cell::Dead);
         assert_eq!(Cell::Alive.evolve(1), Cell::Dead);
     }
 
     #[test]
-    fn test_evolve_kills_cell_with_more_than_three_neighbors() {
+    fn evolve_kills_cell_with_more_than_three_neighbors() {
         assert_eq!(Cell::Alive.evolve(4), Cell::Dead);
         assert_eq!(Cell::Alive.evolve(5), Cell::Dead);
     }
 
     #[test]
-    fn test_count_alive_neighbors_counts_one_neighbor() {
+    fn count_alive_neighbors_counts_one_neighbor() {
         let conway = Conway::with_cells(&[(0, 0), (0, 1)]);
         assert_eq!(conway.count_alive_neighbors((0, 0)), 1);
     }
 
     #[test]
-    fn test_count_alive_neighbors_counts_two_neighbors() {
+    fn count_alive_neighbors_counts_two_neighbors() {
         let conway = Conway::with_cells(&[(0, 5), (0, 6), (0, 7)]);
         assert_eq!(conway.count_alive_neighbors((0, 6)), 2);
     }
 
     #[test]
-    fn test_get() {
+    fn get() {
         let conway = Conway::with_cells(&[(0, 0)]);
         assert_eq!(conway.get((0, 0)), Cell::Alive);
         assert_eq!(conway.get((0, 1)), Cell::Dead);
     }
 
     #[test]
-    fn test_next_evolves_alive_cells() {
+    fn next_evolves_alive_cells() {
         let points = [(0, 0), (0, 1), (0, 2)];
         let conway = Conway::with_cells(&points);
         let result = conway.next();
@@ -149,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn test_next_evolves_dead_but_involved_cells() {
+    fn next_evolves_dead_but_involved_cells() {
         let points = [(0, 0), (1, 0), (0, 1)];
         let conway = Conway::with_cells(&points);
         let result = conway.next();
@@ -158,5 +166,12 @@ mod tests {
             result.get((1, 1)),
             conway.get((1, 1)).evolve(alive_neighbor_count)
         )
+    }
+
+    #[test]
+    fn with_iter() {
+        let conway = Conway::with_iter(iter::once((1, 0)));
+        assert_eq!(conway.get((1, 0)), Cell::Alive);
+        assert_eq!(conway.get((0, 0)), Cell::Dead);
     }
 }
