@@ -26,7 +26,7 @@ fn main() -> crossterm::Result<()> {
             }
         }
     }
-    execute!(stdout, cursor::Show, terminal::LeaveAlternateScreen)?;
+    execute!(stdout, terminal::LeaveAlternateScreen, cursor::Show)?;
     Ok(())
 }
 
