@@ -120,15 +120,13 @@ mod tests {
 
     #[test]
     fn test_count_alive_neighbors_counts_one_neighbor() {
-        let mut conway = Conway::new();
-        conway.grid.extend([(0, 0), (0, 1)].iter());
+        let conway = Conway::with_cells(&[(0, 0), (0, 1)]);
         assert_eq!(conway.count_alive_neighbors((0, 0)), 1);
     }
 
     #[test]
     fn test_count_alive_neighbors_counts_two_neighbors() {
-        let mut conway = Conway::new();
-        conway.grid.extend([(0, 5), (0, 6), (0, 7)].iter());
+        let conway = Conway::with_cells(&[(0, 5), (0, 6), (0, 7)]);
         assert_eq!(conway.count_alive_neighbors((0, 6)), 2);
     }
 
